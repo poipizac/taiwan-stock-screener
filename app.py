@@ -93,18 +93,31 @@ else:
 st.query_params["ticker"] = selected_ticker
 
 # --- [Phase 3: 資料抓取函數] ---
-@st.cache_data(ttl=3600)
-def get_stock_data(ticker):
-    """從 yfinance 抓取歷史數據並標準化"""
-    end_date = TODAY + timedelta(days=1) # 向後推移一天確保包含今日最新資料
-    start_date = TODAY - timedelta(days=540)
-    data = yf.download(ticker, start=start_date, end=end_date)
-    if data.empty: return data
-    if isinstance(data.columns, pd.MultiIndex):
-        data.columns = data.columns.get_level_values(0)
-    # 去除時區並保留純日期物件
-    data.index = pd.to_datetime(data.index).tz_localize(None).normalize()
-    return data
+@st.cache_data(ttl=86400) # 快取一天，避免重複請求拖慢速度
+def get_chinese_stock_name(ticker_symbol):
+    try:
+        # 從代號中提取純數字 (例如 '2615.TW' -> '2615')
+        stock_id = ticker_symbol.split('.')[0]
+        
+        from FinMind.data import DataLoader
+        import streamlit as st # 確保有引入 st
+        
+        dl_info = DataLoader()
+        
+        # 🌟 關鍵修復：讓查名字的動作也掛上你的 VIP 金鑰
+        token = st.secrets.get("FINMIND_TOKEN", "")
+        if token:
+            dl_info.login_by_token(api_token=token)
+            
+        info_df = dl_info.taiwan_stock_info()
+        
+        # 比對並取出繁體中文名稱
+        match = info_df[info_df['stock_id'] == stock_id]
+        if not match.empty:
+            return match['stock_name'].iloc[0]
+    except Exception:
+        pass
+    return ""
 
 @st.cache_data(ttl=3600)
 def get_institutional_data(ticker, token=""):
