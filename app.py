@@ -7,6 +7,31 @@ from datetime import datetime, timedelta
 import google.generativeai as genai
 from FinMind.data import DataLoader
 
+# --- [Phase 0: 門禁系統 (Gatekeeper)] ---
+# 1. 初始化登入狀態
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+# 2. 驗證流程
+if not st.session_state.authenticated:
+    st.set_page_config(page_title="🔒 登入驗證", layout="centered")
+    st.warning("🔒 這是私人專屬的 AI 看盤系統，請輸入通關密碼。")
+    
+    with st.form("login_form"):
+        pwd = st.text_input("請輸入密碼：", type="password")
+        submit = st.form_submit_button("解鎖進入")
+        
+        if submit:
+            # 比對密碼 (若 secrets 無設定，預設為 admin)
+            correct_password = st.secrets.get("APP_PASSWORD", "admin")
+            if pwd == correct_password:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("❌ 密碼錯誤，請重新輸入！")
+                
+    st.stop() # 🛑 強制中斷執行，防止洩漏後續程式邏輯與數據
+
 # --- [Phase 1: 環境與全局設定] ---
 # 1. 全局時間錨點 (確保數據同步)
 TODAY = datetime.now()
