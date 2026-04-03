@@ -210,6 +210,7 @@ if selected_ticker:
         trust_df = pd.DataFrame()
         for window in [5, 10, 20, 60, 120]:
             df[f'SMA_{window}'] = df['Close'].rolling(window=window).mean()
+        df['200MA'] = df['Close'].rolling(window=200).mean()
         
         # [2. 法人數據處理與字串對齊]
         if not inst_df.empty:
@@ -300,6 +301,7 @@ if selected_ticker:
             if st.checkbox("20日 (月線)", value=(20 in qp_smas)): active_smas.append(20)
             if st.checkbox("60日 (季線)", value=(60 in qp_smas)): active_smas.append(60)
             if st.checkbox("120日線", value=(120 in qp_smas)): active_smas.append(120)
+            show_200ma = st.checkbox("200日 (年線)", value=False)
             st.query_params["ma"] = [str(x) for x in active_smas]
             
             st.write("---")
@@ -342,6 +344,11 @@ if selected_ticker:
                     x=df_plot.index, y=df_plot[f'SMA_{window}'], mode='lines', 
                     name=f'{window}MA', line=dict(color=sma_colors[window], width=1.5), yaxis="y1",
                     hovertemplate=f'<b>{window}日線</b>: %{{y:.2f}}<extra></extra>'
+                ))
+
+            if show_200ma:
+                fig.add_trace(go.Scatter(
+                    x=df_plot.index, y=df_plot['200MA'], line=dict(color='magenta', width=1.5), name='200MA', yaxis="y1"
                 ))
 
             # 2.5 標示漲停 (特殊功能)
