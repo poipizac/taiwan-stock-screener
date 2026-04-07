@@ -134,13 +134,20 @@ def get_stock_data(ticker):
 @st.cache_data(ttl=3600)
 def get_institutional_data(ticker, token=""):
     """從 FinMind 抓取法人籌碼數據"""
-    end_date = TODAY + timedelta(days=1) # 同步推移確保資料對齊
+    # 🛑 遇到上櫃股直接提早結束，不浪費 API 連線時間
+    if ".TWO" in ticker.upper():
+        return pd.DataFrame() 
+        
+    end_date = TODAY + timedelta(days=1)
     start_date = TODAY - timedelta(days=540)
-    clean_ticker = ticker.replace('.TW', '').replace('.TWO', '')
+    clean_ticker = ticker.replace('.TW', '')
+    
     dl = DataLoader()
     if token: dl.login_by_token(api_token=token.strip())
+    
     try:
-        fm_df = dl.taiwan_stock_institutional_investors(
+        fm_df = dl.request_data(
+            dataset='TaiwanStockInstitutionalInvestorsBuySell',
             stock_id=clean_ticker,
             start_date=start_date.strftime("%Y-%m-%d"),
             end_date=end_date.strftime("%Y-%m-%d")
@@ -212,6 +219,9 @@ if selected_ticker:
             df[f'SMA_{window}'] = df['Close'].rolling(window=window).mean()
         df['200MA'] = df['Close'].rolling(window=200).mean()
         
+        # 加上這段貼心提示
+        if ".TWO" in selected_ticker.upper():
+            st.info("💡 資料庫限制：FinMind 免費 API 目前僅提供「上市股」法人籌碼，尚未支援「上櫃股」。上櫃股將僅顯示技術線型。")
         # [2. 法人數據處理與字串對齊]
         if not inst_df.empty:
             try:
