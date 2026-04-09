@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import google.generativeai as genai
 from FinMind.data import DataLoader
+import glob # 記得確認檔案最上方有沒有 import glob，沒有的話幫我加在最上面
 
 # --- [Phase 0: 門禁系統 (Gatekeeper)] ---
 # 1. 初始化登入狀態
@@ -219,9 +220,43 @@ if selected_ticker:
             df[f'SMA_{window}'] = df['Close'].rolling(window=window).mean()
         df['200MA'] = df['Close'].rolling(window=200).mean()
         
-        # 加上這段貼心提示
+        
+
+        # --- 🌟 專屬上櫃籌碼儀表板 ---
         if ".TWO" in selected_ticker.upper():
-            st.info("💡 資料庫限制：FinMind 免費 API 目前僅提供「上市股」法人籌碼，尚未支援「上櫃股」。上櫃股將僅顯示技術線型。")
+            st.info("💡 上櫃籌碼由專屬 GitHub 爬蟲每日自動提供。目前顯示最新一個交易日之數據。")
+            
+            # 1. 自動尋找資料夾內最新的 CSV 檔案
+            csv_files = glob.glob("tpex_inst_*.csv")
+            
+            if csv_files:
+                # 依照檔名排序，最後一個絕對是最新的日期
+                latest_file = sorted(csv_files)[-1]
+                tpex_df = pd.read_csv(latest_file)
+                
+                # 確保代號是字串格式以便比對
+                tpex_df['代號'] = tpex_df['代號'].astype(str)
+                stock_id = selected_ticker.split('.')[0]
+                
+                # 2. 從 800 多檔中，精準篩選出使用者選的這檔股票
+                target_data = tpex_df[tpex_df['代號'] == stock_id]
+                
+                if not target_data.empty:
+                    # 擷取檔名上的日期 (例如從 tpex_inst_20240408.csv 抽出 20240408)
+                    date_str = latest_file.replace('tpex_inst_', '').replace('.csv', '')
+                    
+                    st.markdown(f"### 🎯 最新交易日 ({date_str}) 法人動向")
+                    # 3. 使用 Streamlit 的 Metric 儀表板元件
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("外資買賣超 (張)", f"{target_data.iloc[0]['外資買賣超']:,}")
+                    col2.metric("投信買賣超 (張)", f"{target_data.iloc[0]['投信買賣超']:,}")
+                    col3.metric("三大法人合計 (張)", f"{target_data.iloc[0]['三大法人買賣超']:,}")
+                    st.divider() # 畫一條分隔線
+                else:
+                    st.warning("最新資料中未找到此檔股票的籌碼資訊。")
+            else:
+                st.warning("正在等待自動化系統產出第一份籌碼報告...")
+
         # [2. 法人數據處理與字串對齊]
         if not inst_df.empty:
             try:
