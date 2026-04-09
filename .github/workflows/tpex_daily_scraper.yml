@@ -1,0 +1,46 @@
+name: 每日自動抓取櫃買中心籌碼
+
+# 設定觸發條件 (鬧鐘)
+on:
+  schedule:
+    # 這是 UTC 時間。台灣時間下午 4:30 = UTC 早上 8:30
+    # Cron 語法: "分鐘 小時 日 月 星期"
+    - cron: '30 8 * * 1-5'  # 星期一到星期五的 UTC 08:30 執行
+  
+  # 允許我們在 GitHub 網頁上手動點擊「執行」按鈕測試
+  workflow_dispatch:
+
+# 定義要執行的工作
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest # 使用 GitHub 提供的免費 Linux 虛擬機
+
+    steps:
+      # 1. 把你的程式碼從 GitHub 倉庫下載到虛擬機裡
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 安裝 Python 環境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # 指定 Python 版本
+
+      # 3. 安裝爬蟲需要的套件
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas urllib3
+
+      # 4. 執行你的爬蟲程式！
+      - name: Run Scraper
+        run: python tpex_scraper.py
+
+      # 5. 把抓到的 CSV 檔案，自動 Commit 並 Push 回你的 GitHub 倉庫
+      - name: Commit and Push CSV
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add tpex_inst_*.csv
+          # 如果有新檔案才 commit，沒檔案就略過不報錯
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 自動化更新：每日上櫃法人籌碼" && git push)
