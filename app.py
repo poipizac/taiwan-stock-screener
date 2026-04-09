@@ -242,7 +242,7 @@ if df is not None:
             x=0,              # 強制定位在畫布最左端
             xref="paper", 
             xanchor="right",  # 以文字右側為準向左對齊
-            xshift=-15,       # 向左方邊界推移，避免重疊到 Y 軸數字
+            xshift=-60,       # 🌟 加大負值位移，讓文字更往左邊靠
             showarrow=False, 
             align="center", 
             font=dict(size=14)
