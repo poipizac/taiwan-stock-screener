@@ -179,6 +179,13 @@ if df is not None:
     df['Signal'] = df['MACD'].ewm(9).mean()
     df['Hist'] = df['MACD'] - df['Signal']
 
+    # KD 指標 (9 日隨機指標)
+    low_min = df['Low'].rolling(9).min()
+    high_max = df['High'].rolling(9).max()
+    df['RSV'] = (df['Close'] - low_min) / (high_max - low_min) * 100
+    df['K'] = df['RSV'].ewm(com=2, adjust=False).mean()
+    df['D'] = df['K'].ewm(com=2, adjust=False).mean()
+
     # 截取繪圖段
     df_plot = df.tail(200).copy()
 
@@ -224,6 +231,12 @@ if df is not None:
         fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Foreign'], name="外", marker_color=np.where(df_plot['Foreign']>=0, 'red', 'green'), yaxis="y3"))
         fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Trust'], name="投", marker_color=np.where(df_plot['Trust']>=0, 'red', 'green'), yaxis="y4"))
         fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Hist'], name="M", marker_color=np.where(df_plot['Hist']>=0, 'red', 'green'), yaxis="y5"))
+        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MACD'], name="MACD", line=dict(color='blue', width=1), yaxis="y5"))
+        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Signal'], name="Signal", line=dict(color='orange', width=1), yaxis="y5"))
+
+        # 5. KD 指標
+        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['K'], name="K", line=dict(color='orange', width=1.5), yaxis="y6"))
+        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['D'], name="D", line=dict(color='blue', width=1.5), yaxis="y6"))
 
         # 佈局設定 (還原六層比例)
         fig.update_layout(
@@ -233,7 +246,8 @@ if df is not None:
             yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False),
             yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False),
             yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False),
-            yaxis5=dict(domain=[0, 0.22], autorange=True, fixedrange=False),
+            yaxis5=dict(domain=[0.12, 0.22], autorange=True, fixedrange=False),
+            yaxis6=dict(domain=[0, 0.10], autorange=True, fixedrange=False),
             showlegend=False
         )
         # 🌟 確保左側有足夠空間容納直書標籤
