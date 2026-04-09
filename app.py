@@ -95,8 +95,7 @@ def get_data_engine(ticker, token):
         dl = DataLoader()
         if token: dl.login_by_token(api_token=token.strip())
         try:
-            inst_df = dl.request_data(
-                dataset='TaiwanStockInstitutionalInvestorsBuySell', 
+            inst_df = dl.taiwan_stock_institutional_investors(
                 stock_id=clean_id,
                 start_date=(TODAY - timedelta(days=360)).strftime("%Y-%m-%d")
             )
