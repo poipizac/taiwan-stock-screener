@@ -226,8 +226,8 @@ if selected_ticker:
         if ".TWO" in selected_ticker.upper():
             st.info("💡 上櫃籌碼由專屬 GitHub 爬蟲每日自動提供。目前顯示最新一個交易日之數據。")
             
-            # 1. 自動尋找資料夾內最新的 CSV 檔案
-            csv_files = glob.glob("tpex_inst_*.csv")
+            # 1. 自動尋找資料夾內最新的 CSV 檔案 (精準過濾，只抓帶有日期的正式檔)
+            csv_files = glob.glob("tpex_inst_[0-9]*.csv")
             
             if csv_files:
                 # 依照檔名排序，最後一個絕對是最新的日期
