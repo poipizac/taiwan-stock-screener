@@ -286,9 +286,12 @@ if selected_ticker:
                 st.warning("正在等待自動化系統產出第一份籌碼報告...")
 
         # [2. 法人數據處理與字串對齊 (針對上市股票 FinMind 資料)]
-        if not inst_df.empty:
-            try:
-                st.write(f"📈 系統診斷 - 法人數據筆數: {len(inst_df)}")
+        if ".TW" in selected_ticker.upper() and selected_ticker.endswith(".TW"):
+            if inst_df.empty:
+                st.warning("⚠️ 系統診斷：FinMind 目前未回傳資料！可能是 API 達到呼叫上限，或伺服器短暫異常。請點擊網頁右上角「⋮ -> Clear cache」後重試。")
+            else:
+                try:
+                    st.write(f"📈 系統診斷 - 法人數據筆數: {len(inst_df)}")
                 if 'date' not in inst_df.columns:
                     inst_df = inst_df.reset_index()
                 
