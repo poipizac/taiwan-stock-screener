@@ -263,7 +263,6 @@ if df is not None:
         st.plotly_chart(fig, use_container_width=True, config={
             'scrollZoom': True,
             'displayModeBar': True,
-            'editable': True,
             'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape']
         })
 
