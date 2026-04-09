@@ -235,7 +235,7 @@ if df is not None:
             showlegend=False
         )
         # 🌟 確保左側有足夠空間容納直書標籤
-        fig.update_layout(margin=dict(l=80))
+        fig.update_layout(margin=dict(l=120))
 
         # ==========================================
         # 🌟 找回左側說明標籤 (直書文字：價格、量、外資、投信、MACD、KD)
@@ -245,7 +245,7 @@ if df is not None:
             x=0,              # 強制定位在畫布最左端
             xref="paper", 
             xanchor="right",  # 以文字右側為準向左對齊
-            xshift=-10,       # 微量左移，避免重疊到 Y 軸數字
+            xshift=-40,       # 推入 margin 空間中，避免重疊到 Y 軸數字
             showarrow=False, 
             align="center", 
             font=dict(size=14)
