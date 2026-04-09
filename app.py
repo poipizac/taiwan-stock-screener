@@ -237,13 +237,22 @@ if df is not None:
         # ==========================================
         # 🌟 找回左側說明標籤 (直書文字：價格、量、外資、投信、MACD、KD)
         # ==========================================
-        label_config = dict(xref="paper", xanchor="right", xshift=-50, showarrow=False, align="center", font=dict(size=14))
+        # 修正後的標籤配置
+        label_config = dict(
+            x=0,              # 強制定位在畫布最左端
+            xref="paper", 
+            xanchor="right",  # 以文字右側為準向左對齊
+            xshift=-15,       # 向左方邊界推移，避免重疊到 Y 軸數字
+            showarrow=False, 
+            align="center", 
+            font=dict(size=14)
+        )
 
-        fig.add_annotation(text="價<br>格", y=0.85, yref="paper", **label_config)
+        fig.add_annotation(text="價<br>格", y=0.82, yref="paper", **label_config)
         fig.add_annotation(text="成<br>交<br>量", y=0.58, yref="paper", **label_config)
         fig.add_annotation(text="外<br>資", y=0.46, yref="paper", **label_config)
-        fig.add_annotation(text="投<br>信", y=0.31, yref="paper", **label_config)
-        fig.add_annotation(text="M<br>A<br>C<br>D", y=0.15, yref="paper", **label_config)
+        fig.add_annotation(text="投<br>信", y=0.34, yref="paper", **label_config)
+        fig.add_annotation(text="M<br>A<br>C<br>D", y=0.19, yref="paper", **label_config)
         fig.add_annotation(text="K<br>D", y=0.05, yref="paper", **label_config)
         
         st.plotly_chart(fig, use_container_width=True)
