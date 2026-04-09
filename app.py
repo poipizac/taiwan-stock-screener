@@ -65,15 +65,15 @@ default_idx = list(ticker_map.keys()).index(current_ticker) if current_ticker in
 st.sidebar.selectbox("1. 選擇預設股票", options=list(ticker_map.values()), index=default_idx, key="stock_selector", on_change=update_from_select)
 st.sidebar.text_input("2. 或直接輸入代號", key="stock_text", on_change=update_from_text, placeholder="例如: 2317.TW")
 
+# 🌟 提醒：如果法人資料不出來，請試著把 Token 欄位完全刪除空白測試
 fm_token = st.sidebar.text_input("💎 FinMind Token (選填)", value=st.secrets.get("FINMIND_TOKEN", ""), type="password")
 selected_ticker = st.session_state.active_ticker
 st.query_params["ticker"] = selected_ticker
 
-# --- [Phase 3: 資料抓取] ---
+# --- [Phase 3: 資料抓取函數] ---
 @st.cache_data(ttl=3600)
 def get_stock_data(ticker):
-    # 多抓一天確保今日數據，並強制標準化日期
-    data = yf.download(ticker, start=TODAY - timedelta(days=540), end=TODAY + timedelta(days=1))
+    data = yf.download(ticker, start=TODAY - timedelta(days=360), end=TODAY + timedelta(days=1))
     if data.empty: return data
     if isinstance(data.columns, pd.MultiIndex): data.columns = data.columns.get_level_values(0)
     data.index = pd.to_datetime(data.index).tz_localize(None).normalize()
@@ -83,10 +83,14 @@ def get_stock_data(ticker):
 def get_institutional_data(ticker, token=""):
     if ".TWO" in ticker.upper(): return pd.DataFrame() 
     dl = DataLoader()
-    if token: dl.login_by_token(api_token=token.strip())
+    if token and len(token.strip()) > 5: # 只有在 Token 有效時才登入
+        try: dl.login_by_token(api_token=token.strip())
+        except: pass
     try:
-        fm_df = dl.request_data(dataset='TaiwanStockInstitutionalInvestorsBuySell', stock_id=ticker.replace('.TW', ''),
-                                start_date=(TODAY - timedelta(days=540)).strftime("%Y-%m-%d"),
+        # 縮短抓取天數 (360天) 增加成功率
+        fm_df = dl.request_data(dataset='TaiwanStockInstitutionalInvestorsBuySell', 
+                                stock_id=ticker.replace('.TW', ''),
+                                start_date=(TODAY - timedelta(days=360)).strftime("%Y-%m-%d"),
                                 end_date=(TODAY + timedelta(days=1)).strftime("%Y-%m-%d"))
         return fm_df if fm_df is not None else pd.DataFrame()
     except: return pd.DataFrame()
@@ -100,11 +104,10 @@ if selected_ticker:
         inst_df = get_institutional_data(selected_ticker, token=fm_token)
 
     if not df.empty:
-        # 計算均線
+        # 計算技術指標
         for window in [5, 10, 20, 60, 120]:
             df[f'SMA_{window}'] = df['Close'].rolling(window=window).mean()
         
-        # 準備空的法人表，索引強制設為日期字串
         foreign_df = pd.DataFrame(columns=['Foreign'])
         trust_df = pd.DataFrame(columns=['Trust'])
 
@@ -118,7 +121,7 @@ if selected_ticker:
                 target = t_df[t_df['代號'].astype(str) == stock_id]
                 
                 if not target.empty:
-                    st.success(f"📈 已掛載 GitHub 爬蟲數據 (最新日期: {latest_f[-12:-4]})")
+                    st.info(f"💡 上櫃籌碼已載入 (日期: {latest_f[-12:-4]})")
                     c1, c2, c3 = st.columns(3)
                     c1.metric("外資買賣超", f"{target.iloc[0]['外資買賣超']:,}")
                     c2.metric("投信買賣超", f"{target.iloc[0]['投信買賣超']:,}")
@@ -147,18 +150,19 @@ if selected_ticker:
                     f_mask = inst_df['name'].str.contains('Foreign_Investor|外資', na=False, regex=True)
                     foreign_df = inst_df[f_mask].groupby('date')[['buy', 'sell']].sum()
                     foreign_df['Foreign'] = foreign_df['buy'] - foreign_df['sell']
-                    
                     t_mask = inst_df['name'].str.contains('Investment_Trust|投信', na=False, regex=True)
                     trust_df = inst_df[t_mask].groupby('date')[['buy', 'sell']].sum()
                     trust_df['Trust'] = trust_df['buy'] - trust_df['sell']
+                    foreign_df.index = pd.to_datetime(foreign_df.index).strftime('%Y-%m-%d')
+                    trust_df.index = pd.to_datetime(trust_df.index).strftime('%Y-%m-%d')
                 except: pass
 
-        # 🌟 關鍵合併邏輯：確保兩邊都是 YYYY-MM-DD 字串
+        # 🌟 數據咬合：統一格式
         df.index = pd.to_datetime(df.index).strftime('%Y-%m-%d')
         df = df.join(foreign_df[['Foreign']], how='left').fillna({'Foreign': 0})
         df = df.join(trust_df[['Trust']], how='left').fillna({'Trust': 0})
 
-        # 計算指標
+        # 指標計算
         df_plot = df.tail(252).copy()
         # MACD
         df_plot['EMA12'] = df_plot['Close'].ewm(span=12, adjust=False).mean()
@@ -184,20 +188,19 @@ if selected_ticker:
         # --- [Phase 6: 專業六層垂直畫布] ---
         with col_chart:
             fig = go.Figure()
-            # 1. K線與均線
             fig.add_trace(go.Candlestick(x=df_plot.index, open=df_plot['Open'], high=df_plot['High'], low=df_plot['Low'], close=df_plot['Close'], name="K線", yaxis="y1", increasing_line_color='red', decreasing_line_color='green'))
             sma_colors = {5: "#FFC107", 10: "#E91E63", 20: "#2196F3", 60: "#4CAF50", 120: "#FF5722"}
             for w in active_smas:
                 fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=sma_colors[w], width=1.5), yaxis="y1"))
             
-            # 🌟 找回漲停標註
+            # 🌟 找回漲停星星
             if show_limit_up:
-                limit_up_mask = (df_plot['Close'] / df_plot['Close'].shift(1) - 1) >= 0.098
-                limit_up_df = df_plot[limit_up_mask]
+                # 台股漲停判定
+                limit_up_df = df_plot[df_plot['Close'] >= (df_plot['Close'].shift(1) * 1.097)]
                 if not limit_up_df.empty:
-                    fig.add_trace(go.Scatter(x=limit_up_df.index, y=limit_up_df['High'] * 1.02, mode='markers', name='漲停', marker=dict(symbol='star-triangle-up', size=12, color='gold', line=dict(width=1, color='red')), yaxis="y1"))
+                    fig.add_trace(go.Scatter(x=limit_up_df.index, y=limit_up_df['High'] * 1.03, mode='markers', name='漲停', marker=dict(symbol='star-triangle-up', size=13, color='gold', line=dict(width=1, color='red')), yaxis="y1"))
 
-            # 2~6 子圖 (成交量, 外資, 投信, MACD, KD)
+            # 柱狀圖與指標
             fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Volume'], name="成交量", marker_color='rgba(128,128,128,0.3)', yaxis="y2"))
             fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Foreign'], name="外資", marker_color=np.where(df_plot['Foreign']>=0, 'red', 'green'), yaxis="y3"))
             fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Trust'], name="投信", marker_color=np.where(df_plot['Trust']>=0, 'red', 'green'), yaxis="y4"))
@@ -215,11 +218,10 @@ if selected_ticker:
             )
             for y_r in ["y3", "y4", "y5"]: fig.add_hline(y=0, line_dash="dot", yref=y_r)
             
-            # 垂直文字標註
+            # 標註文字
             fig.add_annotation(text="價<br>格", x=0, xref="paper", y=0.8, yref="paper", showarrow=False)
             fig.add_annotation(text="外<br>資", x=0, xref="paper", y=0.45, yref="paper", showarrow=False)
             fig.add_annotation(text="投<br>信", x=0, xref="paper", y=0.35, yref="paper", showarrow=False)
-            
             st.plotly_chart(fig, use_container_width=True)
 
         if ai_clicked:
@@ -227,5 +229,5 @@ if selected_ticker:
             if g_key:
                 genai.configure(api_key=g_key)
                 model = genai.GenerativeModel('gemini-2.0-flash')
-                resp = model.generate_content(f"分析股票 {selected_ticker}。收盤 {p:,.2f}。外資近五日 {df_plot['Foreign'].tail(5).sum()}。請給出投資策略。")
+                resp = model.generate_content(f"分析股票 {selected_ticker}。收盤 {p:,.2f}。外資近五日 {df_plot['Foreign'].tail(5).sum()}。")
                 st.info(resp.text)
