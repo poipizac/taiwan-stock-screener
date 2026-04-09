@@ -234,9 +234,17 @@ if df is not None:
             yaxis5=dict(domain=[0, 0.22]),
             showlegend=False
         )
-        # 垂直文字標籤
-        for txt, y_p in [("價<br>格", 0.8), ("外<br>資", 0.46), ("投<br>信", 0.31), ("M<br>A<br>C<br>D", 0.1)]:
-            fig.add_annotation(text=txt, x=0, xref="paper", y=y_p, yref="paper", showarrow=False, xanchor="right", xshift=-50)
+        # ==========================================
+        # 🌟 找回左側說明標籤 (直書文字：價格、量、外資、投信、MACD、KD)
+        # ==========================================
+        label_config = dict(xref="paper", xanchor="right", xshift=-50, showarrow=False, align="center", font=dict(size=14))
+
+        fig.add_annotation(text="價<br>格", y=0.85, yref="paper", **label_config)
+        fig.add_annotation(text="成<br>交<br>量", y=0.58, yref="paper", **label_config)
+        fig.add_annotation(text="外<br>資", y=0.46, yref="paper", **label_config)
+        fig.add_annotation(text="投<br>信", y=0.31, yref="paper", **label_config)
+        fig.add_annotation(text="M<br>A<br>C<br>D", y=0.15, yref="paper", **label_config)
+        fig.add_annotation(text="K<br>D", y=0.05, yref="paper", **label_config)
         
         st.plotly_chart(fig, use_container_width=True)
 
