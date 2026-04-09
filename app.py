@@ -229,9 +229,11 @@ if df is not None:
         fig.update_layout(
             height=1100, template="plotly_white", hovermode="x unified",
             xaxis=dict(type='category', dtick=20),
-            yaxis1=dict(domain=[0.65, 1.0]), yaxis2=dict(domain=[0.55, 0.63]),
-            yaxis3=dict(domain=[0.40, 0.52]), yaxis4=dict(domain=[0.25, 0.37]),
-            yaxis5=dict(domain=[0, 0.22]),
+            yaxis1=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False),
+            yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False),
+            yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False),
+            yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False),
+            yaxis5=dict(domain=[0, 0.22], autorange=True, fixedrange=False),
             showlegend=False
         )
         # 🌟 確保左側有足夠空間容納直書標籤
@@ -258,7 +260,12 @@ if df is not None:
         fig.add_annotation(text="M<br>A<br>C<br>D", y=0.19, yref="paper", **label_config)
         fig.add_annotation(text="K<br>D", y=0.05, yref="paper", **label_config)
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={
+            'scrollZoom': True,
+            'displayModeBar': True,
+            'editable': True,
+            'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape']
+        })
 
     if ai_clicked:
         st.info("💡 AI 診斷生成中... 請確認 API KEY 已設定。")
