@@ -122,7 +122,9 @@ else:
     st.sidebar.info("非台股標的，不抓法人資料")
 
 if df is not None:
-    st.title(f"📊 {selected_ticker} 專業籌碼診斷儀表板")
+    # 🌟 從 ticker_map 抓取中文名稱，如果抓不到就顯示代號
+    display_name = ticker_map.get(selected_ticker, selected_ticker)
+    st.title(f"📊 {display_name} 專業籌碼診斷儀表板")
     st.markdown("---")
     
     # A. 數據對齊與合併
