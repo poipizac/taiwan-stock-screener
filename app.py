@@ -86,24 +86,41 @@ def get_data_engine(ticker, token):
     # 🌟 關鍵：強制索引轉字串 YYYY-MM-DD
     raw_df.index = pd.to_datetime(raw_df.index).strftime('%Y-%m-%d')
     
-    # 2. 法人 (僅上市)
+    # 2. 法人 (上市 .TW + 上櫃 .TWO 皆可抓取)
     inst_df = pd.DataFrame()
-    if ".TW" in ticker.upper() and ".TWO" not in ticker.upper():
+    # 🌟 代號清洗：去除 .TWO 再去除 .TW（順序重要，先長後短）
+    clean_id = ticker.upper().replace('.TWO', '').replace('.TW', '')
+    is_tw_stock = ticker.upper().endswith('.TW') or ticker.upper().endswith('.TWO')
+    if is_tw_stock:
         dl = DataLoader()
         if token: dl.login_by_token(api_token=token.strip())
         try:
             inst_df = dl.request_data(
                 dataset='TaiwanStockInstitutionalInvestorsBuySell', 
-                stock_id=ticker.replace('.TW', ''),
+                stock_id=clean_id,
                 start_date=(TODAY - timedelta(days=360)).strftime("%Y-%m-%d")
             )
-        except: pass
+        except Exception as e:
+            st.sidebar.warning(f"FinMind 呼叫失敗: {e}")
     return raw_df, inst_df
 
 # ==========================================
 # Phase 4: 主數據處理邏輯 (還原華麗功能)
 # ==========================================
 df, inst_raw = get_data_engine(selected_ticker, fm_token)
+
+# 🌟 Sidebar 診斷區
+st.sidebar.markdown("---")
+st.sidebar.subheader("📡 數據診斷")
+if inst_raw is not None:
+    st.sidebar.write(f"API 抓取筆數: {len(inst_raw)}")
+    if not inst_raw.empty:
+        st.sidebar.write(f"日期範圍: {inst_raw['date'].iloc[0]} ~ {inst_raw['date'].iloc[-1]}")
+        st.sidebar.write(f"欄位: {list(inst_raw.columns)}")
+    else:
+        st.sidebar.warning("FinMind API 回傳空資料 (0 筆)")
+else:
+    st.sidebar.info("非台股標的，不抓法人資料")
 
 if df is not None:
     st.title(f"📊 {selected_ticker} 專業籌碼診斷儀表板")
@@ -113,16 +130,28 @@ if df is not None:
     df['Foreign'] = 0.0
     df['Trust'] = 0.0
 
-    # 上市股對齊
+    # 🌟 法人數據對齊（上市 + 上櫃皆適用）
     if inst_raw is not None and not inst_raw.empty:
+        # 關鍵：統一日期格式為 YYYY-MM-DD 字串，與 df.index 一致
         inst_raw['date'] = pd.to_datetime(inst_raw['date']).dt.strftime('%Y-%m-%d')
+        
+        # 外資
         f_mask = inst_raw['name'].str.contains('Foreign_Investor|外資', na=False)
         f_val = inst_raw[f_mask].groupby('date')[['buy', 'sell']].sum()
-        df['Foreign'] = (f_val['buy'] - f_val['sell']).reindex(df.index).fillna(0)
+        f_net = f_val['buy'] - f_val['sell']
+        df['Foreign'] = f_net.reindex(df.index).fillna(0).astype(float)
         
+        # 投信
         t_mask = inst_raw['name'].str.contains('Investment_Trust|投信', na=False)
         t_val = inst_raw[t_mask].groupby('date')[['buy', 'sell']].sum()
-        df['Trust'] = (t_val['buy'] - t_val['sell']).reindex(df.index).fillna(0)
+        t_net = t_val['buy'] - t_val['sell']
+        df['Trust'] = t_net.reindex(df.index).fillna(0).astype(float)
+        
+        # 診斷：合併後非零筆數
+        f_nonzero = (df['Foreign'] != 0).sum()
+        t_nonzero = (df['Trust'] != 0).sum()
+        st.sidebar.write(f"外資有數據天數: {f_nonzero} / {len(df)}")
+        st.sidebar.write(f"投信有數據天數: {t_nonzero} / {len(df)}")
 
     # 上櫃股 CSV 縫合
     if ".TWO" in selected_ticker:
