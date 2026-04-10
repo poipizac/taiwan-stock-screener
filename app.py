@@ -77,6 +77,19 @@ st.query_params["ticker"] = selected_ticker
 # ==========================================
 # Phase 3: 強力數據抓取函數
 # ==========================================
+@st.cache_data(ttl=86400)
+def get_tw_stock_name(stock_id):
+    """從 FinMind 取得台股繁體中文名稱，快取 24 小時"""
+    try:
+        dl = DataLoader()
+        info = dl.taiwan_stock_info()
+        match = info[info['stock_id'] == stock_id]
+        if not match.empty:
+            return match.iloc[0]['stock_name']
+    except:
+        pass
+    return None
+
 @st.cache_data(ttl=3600)
 def get_data_engine(ticker, token):
     # 1. 股價
@@ -122,15 +135,22 @@ else:
     st.sidebar.info("非台股標的，不抓法人資料")
 
 if df is not None:
-    # 🌟 從 ticker_map 抓取中文名稱，如果抓不到就用 yfinance 取得股票名稱
+    # 🌟 從 ticker_map 抓取中文名稱，如果抓不到就用 FinMind 取得繁體中文名稱
     display_name = ticker_map.get(selected_ticker, None)
     if display_name is None:
-        try:
-            info = yf.Ticker(selected_ticker).info
-            short_name = info.get('shortName', '')
-            display_name = f"{selected_ticker} {short_name}" if short_name else selected_ticker
-        except:
-            display_name = selected_ticker
+        clean_id = selected_ticker.upper().replace('.TWO', '').replace('.TW', '')
+        is_tw = selected_ticker.upper().endswith('.TW') or selected_ticker.upper().endswith('.TWO')
+        if is_tw:
+            cn_name = get_tw_stock_name(clean_id)
+            if cn_name:
+                display_name = f"{cn_name} ({clean_id})"
+        if display_name is None:
+            try:
+                info = yf.Ticker(selected_ticker).info
+                short_name = info.get('shortName', '')
+                display_name = f"{selected_ticker} {short_name}" if short_name else selected_ticker
+            except:
+                display_name = selected_ticker
     st.title(f"📊 {display_name} 專業籌碼診斷儀表板")
     st.markdown("---")
     
