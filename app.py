@@ -122,8 +122,15 @@ else:
     st.sidebar.info("非台股標的，不抓法人資料")
 
 if df is not None:
-    # 🌟 從 ticker_map 抓取中文名稱，如果抓不到就顯示代號
-    display_name = ticker_map.get(selected_ticker, selected_ticker)
+    # 🌟 從 ticker_map 抓取中文名稱，如果抓不到就用 yfinance 取得股票名稱
+    display_name = ticker_map.get(selected_ticker, None)
+    if display_name is None:
+        try:
+            info = yf.Ticker(selected_ticker).info
+            short_name = info.get('shortName', '')
+            display_name = f"{selected_ticker} {short_name}" if short_name else selected_ticker
+        except:
+            display_name = selected_ticker
     st.title(f"📊 {display_name} 專業籌碼診斷儀表板")
     st.markdown("---")
     
@@ -173,7 +180,7 @@ if df is not None:
             df['Trust'] = h_df['T'].reindex(df.index).fillna(df['Trust'])
 
     # 技術指標
-    for w in [5, 10, 20, 60, 120]:
+    for w in [5, 10, 20, 60, 120, 200]:
         df[f'SMA_{w}'] = df['Close'].rolling(w).mean()
     df['MACD'] = df['Close'].ewm(span=12).mean() - df['Close'].ewm(span=26).mean()
     df['Signal'] = df['MACD'].ewm(9).mean()
@@ -196,7 +203,7 @@ if df is not None:
     
     with col_ctrl:
         st.subheader("分析工具箱")
-        active_smas = [w for w in [5, 10, 20, 60, 120] if st.checkbox(f"{w}日線", value=w in [5, 20, 60])]
+        active_smas = [w for w in [5, 10, 20, 60, 120, 200] if st.checkbox(f"{w}日線", value=w in [5, 20, 60])]
         show_limit = st.checkbox("標示漲停 (10%)", value=True)
         ai_clicked = st.button("🚀 啟動 AI 診斷", use_container_width=True)
         
@@ -222,7 +229,7 @@ if df is not None:
                 fig.add_trace(go.Scatter(x=limit_up.index, y=limit_up['High']*1.02, mode='markers', name='漲停', marker=dict(symbol='star', size=12, color='gold'), yaxis="y1"))
         
         # 3. 均線
-        colors = {5: "#FFC107", 10: "#E91E63", 20: "#2196F3", 60: "#4CAF50", 120: "#FF5722"}
+        colors = {5: "#FFC107", 10: "#E91E63", 20: "#2196F3", 60: "#4CAF50", 120: "#FF5722", 200: "#9C27B0"}
         for w in active_smas:
             fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=colors[w], width=1.5), yaxis="y1"))
 
