@@ -323,7 +323,7 @@ if df is not None:
         try:
             with st.spinner("AI 正在分析數據中..."):
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                model = genai.GenerativeModel('gemma-3-12b-it')
+                model = genai.GenerativeModel('gemini-flash-latest')
                 
                 # 準備數據
                 last_row = df_plot.iloc[-1]
