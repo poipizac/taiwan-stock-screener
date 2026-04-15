@@ -281,7 +281,7 @@ if df is not None:
         fig.update_layout(
             height=1100, template="plotly_white", hovermode="x unified",
             xaxis=dict(type='category', dtick=20),
-            yaxis1=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False, anchor="x"),
+            yaxis=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False, anchor="x"),
             yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False, anchor="x"),
             yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False, anchor="x"),
             yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False, anchor="x"),
@@ -323,7 +323,7 @@ if df is not None:
         try:
             with st.spinner("AI 正在分析數據中..."):
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemma-3-12b-it')
                 
                 # 準備數據
                 last_row = df_plot.iloc[-1]
@@ -331,14 +331,22 @@ if df is not None:
                 price_change = (last_row['Close'] / prev_row['Close'] - 1) * 100
                 
                 prompt = f"""
-                你是一位台股資深分析師。請根據以下數據進行專業診斷並給出投資建議：
+                你是一位台股資深分析師。請根據以下數據進行專業診斷，並給出一份詳盡的投資建議報告：
                 - 股票：{display_name}
                 - 最新收盤價：{last_row['Close']:.2f}
                 - 今日漲跌幅：{price_change:+.2f}%
                 - 外資買賣超：{last_row['Foreign']:,.0f} 股
                 - 投信買賣超：{last_row['Trust']:,.0f} 股
+
+                請務必使用 Markdown 格式，將報告分為以下三個段落：
+                ### 📈 盤勢總結
+                (根據漲跌與籌碼給出一段總體看法)
+                ### 📊 技術與籌碼面分析
+                (分析外資與投信的動向對股價的影響)
+                ### 💡 操作建議
+                (給出具體的短中線操作策略、潛在支撐與風險提示)
                 
-                請給出一段 150 字以內的專業投資建議。
+                報告總字數請控制在 300~500 字左右。
                 """
                 
                 response = model.generate_content(prompt)
