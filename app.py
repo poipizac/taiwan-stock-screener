@@ -134,6 +134,18 @@ if inst_raw is not None:
 else:
     st.sidebar.info("非台股標的，不抓法人資料")
 
+# 🌟 API 模型探測區
+if st.sidebar.button("🔍 偵測可用 AI 模型"):
+    try:
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        available_models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+        st.sidebar.success(f"✅ 支援模型：\n\n{', '.join(available_models)}")
+    except Exception as e:
+        st.sidebar.error(f"獲取模型清單失敗：{e}")
+
 if df is not None:
     # 🌟 從 ticker_map 抓取中文名稱，如果抓不到就用 FinMind 取得繁體中文名稱
     display_name = ticker_map.get(selected_ticker, None)
@@ -240,18 +252,18 @@ if df is not None:
     with col_chart:
         fig = go.Figure()
         # 1. K線
-        fig.add_trace(go.Candlestick(x=df_plot.index, open=df_plot['Open'], high=df_plot['High'], low=df_plot['Low'], close=df_plot['Close'], name="K線", yaxis="y", increasing_line_color='red', decreasing_line_color='green'))
+        fig.add_trace(go.Candlestick(x=df_plot.index, open=df_plot['Open'], high=df_plot['High'], low=df_plot['Low'], close=df_plot['Close'], name="K線", yaxis="y1", increasing_line_color='red', decreasing_line_color='green'))
         
         # 2. 漲停星星
         if show_limit:
             limit_up = df_plot[df_plot['Close'] >= (df_plot['Close'].shift(1) * 1.097)]
             if not limit_up.empty:
-                fig.add_trace(go.Scatter(x=limit_up.index, y=limit_up['High']*1.02, mode='markers', name='漲停', marker=dict(symbol='star', size=12, color='gold'), yaxis="y"))
+                fig.add_trace(go.Scatter(x=limit_up.index, y=limit_up['High']*1.02, mode='markers', name='漲停', marker=dict(symbol='star', size=12, color='gold'), yaxis="y1"))
         
         # 3. 均線
         colors = {5: "#FFC107", 10: "#E91E63", 20: "#2196F3", 60: "#4CAF50", 120: "#FF5722", 200: "#9C27B0"}
         for w in active_smas:
-            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=colors[w], width=1.5), yaxis="y"))
+            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=colors[w], width=1.5), yaxis="y1"))
 
         # 4. 成交量、外資、投信、MACD
         fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Volume'], name="量", marker_color='rgba(128,128,128,0.2)', yaxis="y2"))
@@ -269,7 +281,7 @@ if df is not None:
         fig.update_layout(
             height=1100, template="plotly_white", hovermode="x unified",
             xaxis=dict(type='category', dtick=20),
-            yaxis=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False, anchor="x"),
+            yaxis1=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False, anchor="x"),
             yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False, anchor="x"),
             yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False, anchor="x"),
             yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False, anchor="x"),
@@ -311,7 +323,7 @@ if df is not None:
         try:
             with st.spinner("AI 正在分析數據中..."):
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                model = genai.GenerativeModel('gemini-2.0-flash')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 # 準備數據
                 last_row = df_plot.iloc[-1]
