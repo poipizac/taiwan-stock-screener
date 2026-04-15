@@ -223,7 +223,7 @@ if df is not None:
     
     with col_ctrl:
         st.subheader("分析工具箱")
-        active_smas = [w for w in [5, 10, 20, 60, 120, 200] if st.checkbox(f"{w}日線", value=w in [5, 20, 60])]
+        active_smas = [w for w in [5, 10, 20, 60, 120, 200] if st.checkbox(f"{w}日線", value=True)]
         show_limit = st.checkbox("標示漲停 (10%)", value=True)
         ai_clicked = st.button("🚀 啟動 AI 診斷", use_container_width=True)
         
@@ -240,18 +240,18 @@ if df is not None:
     with col_chart:
         fig = go.Figure()
         # 1. K線
-        fig.add_trace(go.Candlestick(x=df_plot.index, open=df_plot['Open'], high=df_plot['High'], low=df_plot['Low'], close=df_plot['Close'], name="K線", yaxis="y1", increasing_line_color='red', decreasing_line_color='green'))
+        fig.add_trace(go.Candlestick(x=df_plot.index, open=df_plot['Open'], high=df_plot['High'], low=df_plot['Low'], close=df_plot['Close'], name="K線", yaxis="y", increasing_line_color='red', decreasing_line_color='green'))
         
         # 2. 漲停星星
         if show_limit:
             limit_up = df_plot[df_plot['Close'] >= (df_plot['Close'].shift(1) * 1.097)]
             if not limit_up.empty:
-                fig.add_trace(go.Scatter(x=limit_up.index, y=limit_up['High']*1.02, mode='markers', name='漲停', marker=dict(symbol='star', size=12, color='gold'), yaxis="y1"))
+                fig.add_trace(go.Scatter(x=limit_up.index, y=limit_up['High']*1.02, mode='markers', name='漲停', marker=dict(symbol='star', size=12, color='gold'), yaxis="y"))
         
         # 3. 均線
         colors = {5: "#FFC107", 10: "#E91E63", 20: "#2196F3", 60: "#4CAF50", 120: "#FF5722", 200: "#9C27B0"}
         for w in active_smas:
-            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=colors[w], width=1.5), yaxis="y1"))
+            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=colors[w], width=1.5), yaxis="y"))
 
         # 4. 成交量、外資、投信、MACD
         fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Volume'], name="量", marker_color='rgba(128,128,128,0.2)', yaxis="y2"))
@@ -269,12 +269,12 @@ if df is not None:
         fig.update_layout(
             height=1100, template="plotly_white", hovermode="x unified",
             xaxis=dict(type='category', dtick=20),
-            yaxis1=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False),
-            yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False),
-            yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False),
-            yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False),
-            yaxis5=dict(domain=[0.12, 0.22], autorange=True, fixedrange=False),
-            yaxis6=dict(domain=[0, 0.10], autorange=True, fixedrange=False),
+            yaxis=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False, anchor="x"),
+            yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False, anchor="x"),
+            yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False, anchor="x"),
+            yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False, anchor="x"),
+            yaxis5=dict(domain=[0.12, 0.22], autorange=True, fixedrange=False, anchor="x"),
+            yaxis6=dict(domain=[0, 0.10], autorange=True, fixedrange=False, anchor="x"),
             showlegend=False
         )
         # 🌟 確保左側有足夠空間容納直書標籤
@@ -288,7 +288,7 @@ if df is not None:
             x=0,              # 強制定位在畫布最左端
             xref="paper", 
             xanchor="right",  # 以文字右側為準向左對齊
-            xshift=-40,       # 推入 margin 空間中，避免重疊到 Y 軸數字
+            xshift=-70,       # 推入 margin 空間中，避免重疊到 Y 軸數字
             showarrow=False, 
             align="center", 
             font=dict(size=14)
@@ -308,7 +308,35 @@ if df is not None:
         })
 
     if ai_clicked:
-        st.info("💡 AI 診斷生成中... 請確認 API KEY 已設定。")
+        try:
+            with st.spinner("AI 正在分析數據中..."):
+                genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+                model = genai.GenerativeModel('gemini-2.0-flash')
+                
+                # 準備數據
+                last_row = df_plot.iloc[-1]
+                prev_row = df_plot.iloc[-2]
+                price_change = (last_row['Close'] / prev_row['Close'] - 1) * 100
+                
+                prompt = f"""
+                你是一位台股資深分析師。請根據以下數據進行專業診斷並給出投資建議：
+                - 股票：{display_name}
+                - 最新收盤價：{last_row['Close']:.2f}
+                - 今日漲跌幅：{price_change:+.2f}%
+                - 外資買賣超：{last_row['Foreign']:,.0f} 股
+                - 投信買賣超：{last_row['Trust']:,.0f} 股
+                
+                請給出一段 150 字以內的專業投資建議。
+                """
+                
+                response = model.generate_content(prompt)
+                st.info(f"🚀 AI 診斷結果：\n\n{response.text}")
+        except Exception as e:
+            err_msg = str(e)
+            if "429" in err_msg or "Quota" in err_msg:
+                st.warning("⚠️ Gemini API 免費額度已耗盡或受限，請至 Google AI Studio 確認帳號狀態。")
+            else:
+                st.error(f"❌ AI 診斷失敗: {err_msg}")
 
 else:
     st.error("⚠️ 無法取得數據，請確認代號或 API 連線。")
