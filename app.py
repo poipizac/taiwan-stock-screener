@@ -292,6 +292,16 @@ if df is not None:
         # 🌟 確保左側有足夠空間容納直書標籤
         fig.update_layout(margin=dict(l=120))
 
+        # 🌟 找回十字游標的水平線 (應用於所有 Y 軸)
+        fig.update_yaxes(
+            showspikes=True,      # 開啟游標輔助線
+            spikemode="across",   # 讓虛線貫穿整個畫布的橫向
+            spikedash="dash",     # 設定為虛線樣式
+            spikecolor="gray",    # 設定顏色為灰色 (不干擾主圖)
+            spikethickness=1,     # 線條粗細
+            spikesnap="cursor"    # 緊緊跟隨滑鼠游標
+        )
+
         # ==========================================
         # 🌟 找回左側說明標籤 (直書文字：價格、量、外資、投信、MACD、KD)
         # ==========================================
@@ -323,7 +333,7 @@ if df is not None:
         try:
             with st.spinner("AI 正在分析數據中..."):
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                model = genai.GenerativeModel('gemini-flash-latest')
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 # 準備數據
                 last_row = df_plot.iloc[-1]
