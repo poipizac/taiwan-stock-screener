@@ -236,158 +236,158 @@ if df is not None:
     # 🛡️ 終極空資料攔截網：如果股價資料是空的，就直接停在這裡，不要去畫圖！
     if df_plot is None or df_plot.empty:
         st.warning(f"⚠️ 目前無法取得 {selected_ticker} 的股價資料。可能是 Yahoo Finance 暫時阻擋連線，或是該股票代號無效。請稍後再試。")
-        st.stop()  # 強制停止，絕對不能往下執行畫圖的程式碼
-
-    # ==========================================
-    # Phase 5 & 6: 專業六層畫布與工具箱
-    # ==========================================
-    col_chart, col_ctrl = st.columns([5, 1])
-    
-    with col_ctrl:
-        st.subheader("分析工具箱")
-        active_smas = [w for w in [5, 10, 20, 60, 120, 200] if st.checkbox(f"{w}日線", value=True)]
-        show_limit = st.checkbox("標示漲停 (10%)", value=True)
-        ai_clicked = st.button("🚀 啟動 AI 診斷", use_container_width=True)
-        
-        # 🌟 修正 TypeError：確保有數據才顯示價格
-        # 確保資料表內一定有這兩個欄位，避免繪圖或取值時發生 KeyError
-        if 'Foreign' not in df_plot.columns:
-            df_plot['Foreign'] = 0
-        if 'Trust' not in df_plot.columns:
-            df_plot['Trust'] = 0
-
-        valid_df = df_plot.dropna(subset=['Close'])
-        if not valid_df.empty and len(valid_df) >= 2:
-            last_row = valid_df.iloc[-1]
-            prev_row = valid_df.iloc[-2]
-            cur_p = last_row['Close']
-            pre_p = prev_row['Close']
-            diff = cur_p - pre_p
-            p_color = "red" if diff >= 0 else "green"
-            st.markdown(f"**最新價格**")
-            st.markdown(f"<h2 style='color:{p_color};'>{cur_p:,.2f}</h2>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:{p_color};'>{diff:+.2f} ({ (diff/pre_p)*100:+.2f}%)</p>", unsafe_allow_html=True)
-        else:
-            last_row = None
-
-    with col_chart:
-        fig = go.Figure()
-        # 1. K線
-        fig.add_trace(go.Candlestick(x=df_plot.index, open=df_plot['Open'], high=df_plot['High'], low=df_plot['Low'], close=df_plot['Close'], name="K線", yaxis="y1", increasing_line_color='red', decreasing_line_color='green'))
-        
-        # 2. 漲停星星
-        if show_limit:
-            limit_up = df_plot[df_plot['Close'] >= (df_plot['Close'].shift(1) * 1.097)]
-            if not limit_up.empty:
-                fig.add_trace(go.Scatter(x=limit_up.index, y=limit_up['High']*1.02, mode='markers', name='漲停', marker=dict(symbol='star', size=12, color='gold'), yaxis="y1"))
-        
-        # 3. 均線
-        colors = {5: "#FFC107", 10: "#E91E63", 20: "#2196F3", 60: "#4CAF50", 120: "#FF5722", 200: "#9C27B0"}
-        for w in active_smas:
-            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=colors[w], width=1.5), yaxis="y1"))
-
-        # 4. 成交量、外資、投信、MACD
-        fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Volume'], name="量", marker_color='rgba(128,128,128,0.2)', yaxis="y2"))
-        fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Foreign'], name="外", marker_color=np.where(df_plot['Foreign']>=0, 'red', 'green'), yaxis="y3"))
-        fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Trust'], name="投", marker_color=np.where(df_plot['Trust']>=0, 'red', 'green'), yaxis="y4"))
-        fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Hist'], name="M", marker_color=np.where(df_plot['Hist']>=0, 'red', 'green'), yaxis="y5"))
-        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MACD'], name="MACD", line=dict(color='blue', width=1), yaxis="y5"))
-        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Signal'], name="Signal", line=dict(color='orange', width=1), yaxis="y5"))
-
-        # 5. KD 指標
-        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['K'], name="K", line=dict(color='orange', width=1.5), yaxis="y6"))
-        fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['D'], name="D", line=dict(color='blue', width=1.5), yaxis="y6"))
-
-        # 佈局設定 (還原六層比例)
-        fig.update_layout(
-            height=1100, template="plotly_white", hovermode="x unified",
-            xaxis=dict(type='category', dtick=20),
-            yaxis=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False, anchor="x"),
-            yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False, anchor="x"),
-            yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False, anchor="x"),
-            yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False, anchor="x"),
-            yaxis5=dict(domain=[0.12, 0.22], autorange=True, fixedrange=False, anchor="x"),
-            yaxis6=dict(domain=[0, 0.10], autorange=True, fixedrange=False, anchor="x"),
-            showlegend=False
-        )
-        # 🌟 確保左側有足夠空間容納直書標籤
-        fig.update_layout(margin=dict(l=120))
-
-        # 🌟 找回十字游標的水平線 (應用於所有 Y 軸)
-        fig.update_yaxes(
-            showspikes=True,      # 開啟游標輔助線
-            spikemode="across",   # 讓虛線貫穿整個畫布的橫向
-            spikedash="dash",     # 設定為虛線樣式
-            spikecolor="gray",    # 設定顏色為灰色 (不干擾主圖)
-            spikethickness=1,     # 線條粗細
-            spikesnap="cursor"    # 緊緊跟隨滑鼠游標
-        )
+    else:
 
         # ==========================================
-        # 🌟 找回左側說明標籤 (直書文字：價格、量、外資、投信、MACD、KD)
+        # Phase 5 & 6: 專業六層畫布與工具箱
         # ==========================================
-        # 修正後的標籤配置
-        label_config = dict(
-            x=0,              # 強制定位在畫布最左端
-            xref="paper", 
-            xanchor="right",  # 以文字右側為準向左對齊
-            xshift=-70,       # 推入 margin 空間中，避免重疊到 Y 軸數字
-            showarrow=False, 
-            align="center", 
-            font=dict(size=14)
-        )
-
-        fig.add_annotation(text="價<br>格", y=0.82, yref="paper", **label_config)
-        fig.add_annotation(text="成<br>交<br>量", y=0.58, yref="paper", **label_config)
-        fig.add_annotation(text="外<br>資", y=0.46, yref="paper", **label_config)
-        fig.add_annotation(text="投<br>信", y=0.34, yref="paper", **label_config)
-        fig.add_annotation(text="M<br>A<br>C<br>D", y=0.19, yref="paper", **label_config)
-        fig.add_annotation(text="K<br>D", y=0.05, yref="paper", **label_config)
+        col_chart, col_ctrl = st.columns([5, 1])
         
-        st.plotly_chart(fig, use_container_width=True, config={
-            'scrollZoom': True,
-            'displayModeBar': True,
-            'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape']
-        })
+        with col_ctrl:
+            st.subheader("分析工具箱")
+            active_smas = [w for w in [5, 10, 20, 60, 120, 200] if st.checkbox(f"{w}日線", value=True)]
+            show_limit = st.checkbox("標示漲停 (10%)", value=True)
+            ai_clicked = st.button("🚀 啟動 AI 診斷", use_container_width=True)
+            
+            # 🌟 修正 TypeError：確保有數據才顯示價格
+            # 確保資料表內一定有這兩個欄位，避免繪圖或取值時發生 KeyError
+            if 'Foreign' not in df_plot.columns:
+                df_plot['Foreign'] = 0
+            if 'Trust' not in df_plot.columns:
+                df_plot['Trust'] = 0
 
-    if ai_clicked:
-        try:
-            with st.spinner("AI 正在分析數據中..."):
-                genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                model = genai.GenerativeModel('gemini-flash-latest')
-                
-                # 準備數據
-                last_row = df_plot.iloc[-1]
-                prev_row = df_plot.iloc[-2]
-                price_change = (last_row['Close'] / prev_row['Close'] - 1) * 100
-                
-                prompt = f"""
-                你是一位台股資深分析師。請根據以下數據進行專業診斷，並給出一份詳盡的投資建議報告：
-                - 股票：{display_name}
-                - 最新收盤價：{last_row['Close']:.2f}
-                - 今日漲跌幅：{price_change:+.2f}%
-                - 外資買賣超：{last_row.get('Foreign', 0):,.0f} 股
-                - 投信買賣超：{last_row.get('Trust', 0):,.0f} 股
-
-                請務必使用 Markdown 格式，將報告分為以下三個段落：
-                ### 📈 盤勢總結
-                (根據漲跌與籌碼給出一段總體看法)
-                ### 📊 技術與籌碼面分析
-                (分析外資與投信的動向對股價的影響)
-                ### 💡 操作建議
-                (給出具體的短中線操作策略、潛在支撐與風險提示)
-                
-                報告總字數請控制在 300~500 字左右。
-                """
-                
-                response = model.generate_content(prompt)
-                st.info(f"🚀 AI 診斷結果：\n\n{response.text}")
-        except Exception as e:
-            err_msg = str(e)
-            if "429" in err_msg or "Quota" in err_msg:
-                st.warning("⚠️ Gemini API 免費額度已耗盡或受限，請至 Google AI Studio 確認帳號狀態。")
+            valid_df = df_plot.dropna(subset=['Close'])
+            if not valid_df.empty and len(valid_df) >= 2:
+                last_row = valid_df.iloc[-1]
+                prev_row = valid_df.iloc[-2]
+                cur_p = last_row['Close']
+                pre_p = prev_row['Close']
+                diff = cur_p - pre_p
+                p_color = "red" if diff >= 0 else "green"
+                st.markdown(f"**最新價格**")
+                st.markdown(f"<h2 style='color:{p_color};'>{cur_p:,.2f}</h2>", unsafe_allow_html=True)
+                st.markdown(f"<p style='color:{p_color};'>{diff:+.2f} ({ (diff/pre_p)*100:+.2f}%)</p>", unsafe_allow_html=True)
             else:
-                st.error(f"❌ AI 診斷失敗: {err_msg}")
+                last_row = None
+
+        with col_chart:
+            fig = go.Figure()
+            # 1. K線
+            fig.add_trace(go.Candlestick(x=df_plot.index, open=df_plot['Open'], high=df_plot['High'], low=df_plot['Low'], close=df_plot['Close'], name="K線", yaxis="y1", increasing_line_color='red', decreasing_line_color='green'))
+            
+            # 2. 漲停星星
+            if show_limit:
+                limit_up = df_plot[df_plot['Close'] >= (df_plot['Close'].shift(1) * 1.097)]
+                if not limit_up.empty:
+                    fig.add_trace(go.Scatter(x=limit_up.index, y=limit_up['High']*1.02, mode='markers', name='漲停', marker=dict(symbol='star', size=12, color='gold'), yaxis="y1"))
+            
+            # 3. 均線
+            colors = {5: "#FFC107", 10: "#E91E63", 20: "#2196F3", 60: "#4CAF50", 120: "#FF5722", 200: "#9C27B0"}
+            for w in active_smas:
+                fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot[f'SMA_{w}'], name=f'{w}MA', line=dict(color=colors[w], width=1.5), yaxis="y1"))
+
+            # 4. 成交量、外資、投信、MACD
+            fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Volume'], name="量", marker_color='rgba(128,128,128,0.2)', yaxis="y2"))
+            fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Foreign'], name="外", marker_color=np.where(df_plot['Foreign']>=0, 'red', 'green'), yaxis="y3"))
+            fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Trust'], name="投", marker_color=np.where(df_plot['Trust']>=0, 'red', 'green'), yaxis="y4"))
+            fig.add_trace(go.Bar(x=df_plot.index, y=df_plot['Hist'], name="M", marker_color=np.where(df_plot['Hist']>=0, 'red', 'green'), yaxis="y5"))
+            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['MACD'], name="MACD", line=dict(color='blue', width=1), yaxis="y5"))
+            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['Signal'], name="Signal", line=dict(color='orange', width=1), yaxis="y5"))
+
+            # 5. KD 指標
+            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['K'], name="K", line=dict(color='orange', width=1.5), yaxis="y6"))
+            fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['D'], name="D", line=dict(color='blue', width=1.5), yaxis="y6"))
+
+            # 佈局設定 (還原六層比例)
+            fig.update_layout(
+                height=1100, template="plotly_white", hovermode="x unified",
+                xaxis=dict(type='category', dtick=20),
+                yaxis=dict(domain=[0.65, 1.0], autorange=True, fixedrange=False, anchor="x"),
+                yaxis2=dict(domain=[0.55, 0.63], autorange=True, fixedrange=False, anchor="x"),
+                yaxis3=dict(domain=[0.40, 0.52], autorange=True, fixedrange=False, anchor="x"),
+                yaxis4=dict(domain=[0.25, 0.37], autorange=True, fixedrange=False, anchor="x"),
+                yaxis5=dict(domain=[0.12, 0.22], autorange=True, fixedrange=False, anchor="x"),
+                yaxis6=dict(domain=[0, 0.10], autorange=True, fixedrange=False, anchor="x"),
+                showlegend=False
+            )
+            # 🌟 確保左側有足夠空間容納直書標籤
+            fig.update_layout(margin=dict(l=120))
+
+            # 🌟 找回十字游標的水平線 (應用於所有 Y 軸)
+            fig.update_yaxes(
+                showspikes=True,      # 開啟游標輔助線
+                spikemode="across",   # 讓虛線貫穿整個畫布的橫向
+                spikedash="dash",     # 設定為虛線樣式
+                spikecolor="gray",    # 設定顏色為灰色 (不干擾主圖)
+                spikethickness=1,     # 線條粗細
+                spikesnap="cursor"    # 緊緊跟隨滑鼠游標
+            )
+
+            # ==========================================
+            # 🌟 找回左側說明標籤 (直書文字：價格、量、外資、投信、MACD、KD)
+            # ==========================================
+            # 修正後的標籤配置
+            label_config = dict(
+                x=0,              # 強制定位在畫布最左端
+                xref="paper", 
+                xanchor="right",  # 以文字右側為準向左對齊
+                xshift=-70,       # 推入 margin 空間中，避免重疊到 Y 軸數字
+                showarrow=False, 
+                align="center", 
+                font=dict(size=14)
+            )
+
+            fig.add_annotation(text="價<br>格", y=0.82, yref="paper", **label_config)
+            fig.add_annotation(text="成<br>交<br>量", y=0.58, yref="paper", **label_config)
+            fig.add_annotation(text="外<br>資", y=0.46, yref="paper", **label_config)
+            fig.add_annotation(text="投<br>信", y=0.34, yref="paper", **label_config)
+            fig.add_annotation(text="M<br>A<br>C<br>D", y=0.19, yref="paper", **label_config)
+            fig.add_annotation(text="K<br>D", y=0.05, yref="paper", **label_config)
+            
+            st.plotly_chart(fig, use_container_width=True, config={
+                'scrollZoom': True,
+                'displayModeBar': True,
+                'modeBarButtonsToAdd': ['drawline', 'drawopenpath', 'eraseshape']
+            })
+
+        if ai_clicked:
+            try:
+                with st.spinner("AI 正在分析數據中..."):
+                    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+                    model = genai.GenerativeModel('gemini-flash-latest')
+                    
+                    # 準備數據
+                    last_row = df_plot.iloc[-1]
+                    prev_row = df_plot.iloc[-2]
+                    price_change = (last_row['Close'] / prev_row['Close'] - 1) * 100
+                    
+                    prompt = f"""
+                    你是一位台股資深分析師。請根據以下數據進行專業診斷，並給出一份詳盡的投資建議報告：
+                    - 股票：{display_name}
+                    - 最新收盤價：{last_row['Close']:.2f}
+                    - 今日漲跌幅：{price_change:+.2f}%
+                    - 外資買賣超：{last_row.get('Foreign', 0):,.0f} 股
+                    - 投信買賣超：{last_row.get('Trust', 0):,.0f} 股
+
+                    請務必使用 Markdown 格式，將報告分為以下三個段落：
+                    ### 📈 盤勢總結
+                    (根據漲跌與籌碼給出一段總體看法)
+                    ### 📊 技術與籌碼面分析
+                    (分析外資與投信的動向對股價的影響)
+                    ### 💡 操作建議
+                    (給出具體的短中線操作策略、潛在支撐與風險提示)
+                    
+                    報告總字數請控制在 300~500 字左右。
+                    """
+                    
+                    response = model.generate_content(prompt)
+                    st.info(f"🚀 AI 診斷結果：\n\n{response.text}")
+            except Exception as e:
+                err_msg = str(e)
+                if "429" in err_msg or "Quota" in err_msg:
+                    st.warning("⚠️ Gemini API 免費額度已耗盡或受限，請至 Google AI Studio 確認帳號狀態。")
+                else:
+                    st.error(f"❌ AI 診斷失敗: {err_msg}")
 
 else:
     st.error("⚠️ 無法取得數據，請確認代號或 API 連線。")
