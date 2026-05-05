@@ -233,9 +233,10 @@ if df is not None:
     # 截取繪圖段
     df_plot = df.tail(200).copy()
 
-    if df_plot.empty:
-        st.error(f"⚠️ 無法取得 {selected_ticker} 的股價資料。可能是 Yahoo Finance 暫時阻擋或代號錯誤。")
-        st.stop()
+    # 🛡️ 終極空資料攔截網：如果股價資料是空的，就直接停在這裡，不要去畫圖！
+    if df_plot is None or df_plot.empty:
+        st.warning(f"⚠️ 目前無法取得 {selected_ticker} 的股價資料。可能是 Yahoo Finance 暫時阻擋連線，或是該股票代號無效。請稍後再試。")
+        st.stop()  # 強制停止，絕對不能往下執行畫圖的程式碼
 
     # ==========================================
     # Phase 5 & 6: 專業六層畫布與工具箱
