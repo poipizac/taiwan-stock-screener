@@ -232,6 +232,16 @@ if df is not None:
         st.error(f"⚠️ 無法取得 {selected_ticker} 的股價資料。可能是 Yahoo Finance 暫時阻擋或代號錯誤。")
         st.stop()
 
+    # 🛡️ 籌碼空值防護網：如果缺乏籌碼資料，全部填補為 0，避免程式崩潰
+    if 'Foreign' not in df_plot.columns:
+        df_plot['Foreign'] = 0
+    if 'Trust' not in df_plot.columns:
+        df_plot['Trust'] = 0
+
+    # 確保即使有欄位，但裡面是 NaN 的時候也補為 0
+    df_plot['Foreign'] = df_plot['Foreign'].fillna(0)
+    df_plot['Trust'] = df_plot['Trust'].fillna(0)
+
     # ==========================================
     # Phase 5 & 6: 專業六層畫布與工具箱
     # ==========================================
