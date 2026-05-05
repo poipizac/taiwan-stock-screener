@@ -228,6 +228,10 @@ if df is not None:
     # 截取繪圖段
     df_plot = df.tail(200).copy()
 
+    if df_plot.empty:
+        st.error(f"⚠️ 無法取得 {selected_ticker} 的股價資料。可能是 Yahoo Finance 暫時阻擋或代號錯誤。")
+        st.stop()
+
     # ==========================================
     # Phase 5 & 6: 專業六層畫布與工具箱
     # ==========================================
@@ -240,14 +244,19 @@ if df is not None:
         ai_clicked = st.button("🚀 啟動 AI 診斷", use_container_width=True)
         
         # 🌟 修正 TypeError：確保有數據才顯示價格
-        if not df_plot.empty:
-            cur_p = df_plot['Close'].iloc[-1]
-            pre_p = df_plot['Close'].iloc[-2]
+        valid_df = df_plot.dropna(subset=['Close'])
+        if not valid_df.empty and len(valid_df) >= 2:
+            last_row = valid_df.iloc[-1]
+            prev_row = valid_df.iloc[-2]
+            cur_p = last_row['Close']
+            pre_p = prev_row['Close']
             diff = cur_p - pre_p
             p_color = "red" if diff >= 0 else "green"
             st.markdown(f"**最新價格**")
             st.markdown(f"<h2 style='color:{p_color};'>{cur_p:,.2f}</h2>", unsafe_allow_html=True)
             st.markdown(f"<p style='color:{p_color};'>{diff:+.2f} ({ (diff/pre_p)*100:+.2f}%)</p>", unsafe_allow_html=True)
+        else:
+            last_row = None
 
     with col_chart:
         fig = go.Figure()
