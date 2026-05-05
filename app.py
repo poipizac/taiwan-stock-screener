@@ -232,16 +232,6 @@ if df is not None:
         st.error(f"⚠️ 無法取得 {selected_ticker} 的股價資料。可能是 Yahoo Finance 暫時阻擋或代號錯誤。")
         st.stop()
 
-    # 🛡️ 籌碼空值防護網：如果缺乏籌碼資料，全部填補為 0，避免程式崩潰
-    if 'Foreign' not in df_plot.columns:
-        df_plot['Foreign'] = 0
-    if 'Trust' not in df_plot.columns:
-        df_plot['Trust'] = 0
-
-    # 確保即使有欄位，但裡面是 NaN 的時候也補為 0
-    df_plot['Foreign'] = df_plot['Foreign'].fillna(0)
-    df_plot['Trust'] = df_plot['Trust'].fillna(0)
-
     # ==========================================
     # Phase 5 & 6: 專業六層畫布與工具箱
     # ==========================================
@@ -254,6 +244,12 @@ if df is not None:
         ai_clicked = st.button("🚀 啟動 AI 診斷", use_container_width=True)
         
         # 🌟 修正 TypeError：確保有數據才顯示價格
+        # 確保資料表內一定有這兩個欄位，避免繪圖或取值時發生 KeyError
+        if 'Foreign' not in df_plot.columns:
+            df_plot['Foreign'] = 0
+        if 'Trust' not in df_plot.columns:
+            df_plot['Trust'] = 0
+
         valid_df = df_plot.dropna(subset=['Close'])
         if not valid_df.empty and len(valid_df) >= 2:
             last_row = valid_df.iloc[-1]
@@ -364,8 +360,8 @@ if df is not None:
                 - 股票：{display_name}
                 - 最新收盤價：{last_row['Close']:.2f}
                 - 今日漲跌幅：{price_change:+.2f}%
-                - 外資買賣超：{last_row['Foreign']:,.0f} 股
-                - 投信買賣超：{last_row['Trust']:,.0f} 股
+                - 外資買賣超：{last_row.get('Foreign', 0):,.0f} 股
+                - 投信買賣超：{last_row.get('Trust', 0):,.0f} 股
 
                 請務必使用 Markdown 格式，將報告分為以下三個段落：
                 ### 📈 盤勢總結
