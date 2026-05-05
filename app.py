@@ -8,6 +8,9 @@ import google.generativeai as genai
 from FinMind.data import DataLoader
 import glob
 
+# 🌟 st.set_page_config 只能呼叫一次，且必須是第一個 Streamlit 指令
+st.set_page_config(page_title="專業台美股 K 線探測器", layout="wide")
+
 # ==========================================
 # Phase 0: 門禁系統 (Gatekeeper) - 🌟 強化穩定性
 # ==========================================
@@ -15,7 +18,6 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.set_page_config(page_title="🔒 登入驗證", layout="centered")
     st.warning("🔒 這是私人專屬的 AI 看盤系統，請輸入通關密碼。")
     with st.form("login_form"):
         pwd = st.text_input("請輸入密碼：", type="password")
@@ -33,7 +35,6 @@ if not st.session_state.authenticated:
 # Phase 1: 環境與全局設定
 # ==========================================
 TODAY = datetime.now()
-st.set_page_config(page_title="專業台美股 K 線探測器", layout="wide")
 
 ticker_map = {
     "2330.TW": "台積電 (TSMC)",
