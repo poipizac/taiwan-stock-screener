@@ -93,7 +93,12 @@ def get_tw_stock_name(stock_id):
 @st.cache_data(ttl=3600)
 def get_data_engine(ticker, token):
     # 1. 股價
-    raw_df = yf.download(ticker, start=TODAY - timedelta(days=360), end=TODAY + timedelta(days=1))
+    try:
+        raw_df = yf.download(ticker, start=TODAY - timedelta(days=360), end=TODAY + timedelta(days=1))
+    except Exception as e:
+        print(f"⚠️ Yahoo Finance 抓取失敗 ({ticker}): {e}")
+        raw_df = pd.DataFrame()
+        
     if raw_df.empty: return None, None
     if isinstance(raw_df.columns, pd.MultiIndex): raw_df.columns = raw_df.columns.get_level_values(0)
     # 🌟 關鍵：強制索引轉字串 YYYY-MM-DD
