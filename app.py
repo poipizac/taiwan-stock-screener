@@ -23,7 +23,7 @@ if not st.session_state.authenticated:
         pwd = st.text_input("請輸入密碼：", type="password")
         submit = st.form_submit_button("解鎖進入")
         if submit:
-            correct_password = st.secrets.get("APP_PASSWORD", "admin")
+            correct_password = "Licker123"
             if pwd == correct_password:
                 st.session_state.authenticated = True
                 st.rerun()
