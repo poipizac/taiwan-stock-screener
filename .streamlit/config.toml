@@ -1,3 +1,2 @@
 [server]
-# 強制使用穩定的 Python 版本，避免 Python 3.14 實驗性版本的路徑 Bug
 pythonVersion = "3.11"

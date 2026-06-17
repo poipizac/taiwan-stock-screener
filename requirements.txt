@@ -4,3 +4,4 @@ pandas
 plotly
 FinMind
 requests
+google-generativeai
